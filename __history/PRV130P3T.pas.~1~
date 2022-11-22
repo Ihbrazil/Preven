@@ -1,0 +1,38 @@
+unit PRV130P3T;
+
+{Tela de Apresentação}
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  ExtCtrls, StdCtrls, jpeg, Buttons;
+
+type
+  TFRMtelaapresentacao = class(TForm)
+    Lblmensagem: TLabel;
+    IMGpreven: TImage;
+    LBLpreven: TLabel;
+    LBLsistema: TLabel;
+    LBLdort: TLabel;
+    BTNfechar: TBitBtn;
+    procedure BTNfecharClick(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  FRMtelaapresentacao: TFRMtelaapresentacao;
+
+implementation
+
+{$R *.DFM}
+
+procedure TFRMtelaapresentacao.BTNfecharClick(Sender: TObject);
+begin
+    FRMtelaapresentacao.Close;
+end;
+
+end.

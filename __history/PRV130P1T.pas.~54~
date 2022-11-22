@@ -1,0 +1,524 @@
+unit PRV130P1T;
+
+{Verificar Atividades do Usuário}
+
+{Programa destinado à monitoração dos periféricos de entrada de dados. A
+monitoração consiste em verificar a atividade do teclado e do mouse durante
+um tempo pré-estabelecido pelo usuário. Transcorrido este tempo ocorre o
+bloqueio destes periféricos. Após o término do pausa ocorre a liberação dos
+mesmos. Durante o pausa é apresentado um conjunto de mensagens.}
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  ExtCtrls, StdCtrls, Buttons, ComCtrls, Menus, ActnPopup,
+  PlatformDefaultStyleActnCtrls;
+
+type
+  TFRMverificaratividadesusuario = class(TForm)
+    PNLpreven: TPanel;
+    TMRverificaratividadesusuario: TTimer;
+    GBXcontroles: TGroupBox;
+    LBLlimitediario: TLabel;
+    LBLSAIDAhorafimatividade: TLabel;
+    LBLSAIDAtempoatividade: TLabel;
+    LBLtempoatividade: TLabel;
+    TMRtecladomouse: TTimer;
+    TYIprevenbackground: TTrayIcon;
+    PopupActionBarpreven: TPopupActionBar;
+    Sobre1: TMenuItem;
+    N1: TMenuItem;
+    Desativar1: TMenuItem;
+    N2: TMenuItem;
+    Sair1: TMenuItem;
+    Minimizar1: TMenuItem;
+    Pausa1: TMenuItem;
+    Pular1: TMenuItem;
+    Adiar1: TMenuItem;
+    Pausar1: TMenuItem;
+    ipo1: TMenuItem;
+    Infantil1: TMenuItem;
+    Adulto1: TMenuItem;
+    TMRsentinela: TTimer;
+    Modo1: TMenuItem;
+    Claro: TMenuItem;
+    Escuro: TMenuItem;
+    Leitura1: TMenuItem;
+    Ajuda1: TMenuItem;
+    Doao1: TMenuItem;
+    procedure TMRverificaratividadesusuarioTimer(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure TMRtecladomouseTimer(Sender: TObject);
+    procedure TKIprevenbackgroundClick(Sender: TObject);
+    procedure Desativar1Click(Sender: TObject);
+    procedure Sair1Click(Sender: TObject);
+    procedure TYIprevenbackgroundClick(Sender: TObject);
+    procedure Minimizar1Click(Sender: TObject);
+    procedure Pausar1Click(Sender: TObject);
+    procedure Sobre1Click(Sender: TObject);
+    procedure Ajuda1Click(Sender: TObject);
+    procedure Adiar1Click(Sender: TObject);
+    procedure Pular1Click(Sender: TObject);
+    procedure Infantil1Click(Sender: TObject);
+    procedure Adulto1Click(Sender: TObject);
+    procedure Leitura1Click(Sender: TObject);
+    procedure EscuroClick(Sender: TObject);
+    procedure ClaroClick(Sender: TObject);
+    procedure Doao1Click(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+
+  end;
+
+var
+  FRMverificaratividadesusuario: TFRMverificaratividadesusuario;
+  T_hfimatividade,{Variável destinada ao armazenamento da hora do fim das
+                     atividades}
+  T_hiniatv,{Marca o instante do início das atividades}
+  T_hinipausa,{Marca o instante do início das pausa}
+  T_hcorrente,{Marca a hora corrente}
+  T_tempoatividadediaria,
+  T_tempopresalvamento,
+  T_tempolimite,{Contém a duração máxima das atividades}
+  T_tempopausa,{Contém a duração do pausa}
+  T_sinalpausa,{É um contador cujo valor máximo é igual ao tempo pausa.
+                  Sofre decréscimos de 1 segundo, ao atingir o valor de zero
+                  segundo sinaliza que o pausa já foi realizado.}
+  T_sinalatividade,{É um contador que sofre acréscimos quando os periféricos de
+                    entrada estão em atividades. Seu valor máximo é o
+
+                    "T_tempopausa". Também sofre decréscimos de 1 segundo, ao
+                    atingir o valor de zero segundo sinaliza que não existe
+                    atividades}
+  T_cntpausa,{É um contador que sofre acréscimos quando os periféricos de
+            entrada foram interrompidos, até atingir o valor do
+            "T_tempopausa". Neste momento são restauradas as atividades}
+  T_cntatv: ttime;{É um contador que sofre acréscimos quando os periféricos de
+            entrada estão em atividade, até atingir o valor do "T_tempolimite".
+            Neste momento são interrompidas as atividades}
+  B_ativataskicon,{Variável booleana que coloca o sistema em background se for
+                          verdadeira}
+  B_publicoalvoinfantil, {Variável booleana que habilita público alvo Infantil se
+                               for verdadeira}
+  B_arquivossalvos : boolean; {Variável booleana que habilita a interrupção se
+                               for verdadeira}
+
+implementation
+
+uses PRV130P1U, PRV130P2T, PRV130P3T, Vcl.Themes, Vcl.Styles, ShellAPI;
+
+{$R *.DFM}
+
+procedure TFRMverificaratividadesusuario.TMRverificaratividadesusuarioTimer(Sender: TObject);
+var
+   I_DesligarComputadorAgora, I_FazerPausaAgora: integer;
+begin
+  if B_ativataskicon = True then
+    begin
+     TYIprevenbackground.Visible := True;
+     FRMverificaratividadesusuario.Visible := False;
+     B_ativataskicon := False;
+    end;
+
+  {Algoritimo principal}
+  T_hcorrente := time();
+  if T_hfimatividade <= T_hcorrente then
+  {Verifica o tempo máximo de atividade diária, informa-se o mesmo foi
+  ultrapassado. Pergunta se o usuário deseja desligar o computador.
+  Caso positivo, informa que deve-se salvar os trabalhos abertos.
+  Caso negativo reinicia o sistema.}
+    begin
+      TMRverificaratividadesusuario.Enabled := False;
+      T_hiniatv := T_hcorrente;
+
+      I_DesligarComputadorAgora := Application.MessageBox('Atividade Diária Ultrapassada. Deseja Desligar Computador Agora?',
+      'Preven - Sistema de Prevenção', mb_YesNo + mb_IconWarning + mb_DefButton1 + MB_SYSTEMMODAL);
+
+      Case I_DesligarComputadorAgora of
+          IdNo:
+            begin
+              Application.MessageBox('Reiniciando o Preven Agora!', 'Preven - Sistema de Prevenção',
+                         mb_Ok + mb_IconInformation + mb_DefButton1 + MB_SYSTEMMODAL);
+              // Reinicialização de Variáveis para um novo Expediente.
+              T_hcorrente := time();
+              T_hfimatividade := T_hcorrente + T_tempoatividadediaria;
+              TMRverificaratividadesusuario.Enabled := True;
+            end;
+          IdYes:
+              Application.MessageBox('Lembre-se de Salvar Seu Trabaho. Depois Desligue Seu Computador.',
+                   'Preven - Sistema de Prevenção', mb_Ok + mb_IconExclamation + mb_DefButton1 + MB_SYSTEMMODAL);
+      end;
+    end;
+  if B_arquivossalvos = False then
+     if T_cntatv > (T_tempolimite - T_tempopresalvamento) then
+        begin
+
+//**************** Pára para receber resposta *********************
+//Deseja Fazer a Pausa Agora? - Salve seus arquivos! - Prepare-se para a pausa em: ' + S_tempopresalvamento + '  Minutos.'
+             MessageBeep(64);
+             TMRverificaratividadesusuario.Enabled := False;
+             MessageBeep(64);
+//Deseja Fazer a Pausa Agora? - Salve seus arquivos! - Prepare-se para a pausa em: ' + S_tempopresalvamento + '  Minutos.'
+//**************** Para para receber resposta *********************
+
+             I_FazerPausaAgora := Application.MessageBox('Deseja Fazer a Pausa Agora?',
+                'Preven - Sistema de Prevenção', mb_YesNo + mb_IconWarning + mb_DefButton1 + MB_SYSTEMMODAL);
+
+             Case I_FazerPausaAgora of
+                IdNo:
+                  begin
+                    T_sinalatividade := StrToTime('00:00:00');
+                    T_sinalpausa := StrToTime('00:00:00');
+                    T_cntpausa := StrToTime('00:00:00');
+                    T_cntatv := StrToTime('00:00:00');
+                    T_hiniatv := T_hcorrente;
+                    T_hinipausa := StrToTime('00:00:00');
+                    T_tempopresalvamento := StrToTime('00:01:00');
+                    MessageBeep(64);
+                    Application.MessageBox('Pausa Cancelada', 'Preven - Sistema de Prevenção',
+                                           mb_Ok + mb_IconWarning + mb_DefButton1 + MB_SYSTEMMODAL);
+                    MessageBeep(64);
+                    Pausar1.Enabled := True;
+                  end;
+                IdYes:
+                  begin
+                    MessageBeep(64);
+                    Application.MessageBox('Salve seus arquivos!', 'Preven - Sistema de Prevenção',
+                    mb_Ok + mb_IconWarning + MB_SYSTEMMODAL);
+                    MessageBeep(64);
+                    B_arquivossalvos := True;
+                    T_sinalatividade := StrToTime('00:00:00');
+//$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ Fórmula 1
+                    T_hiniatv := ((T_hcorrente - T_tempolimite) + T_tempopresalvamento);
+                    T_cntatv := T_tempolimite - T_tempopresalvamento;
+//$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ Fórmula 1
+                    Pausar1.Enabled := False;
+                  end;
+             end;
+//************************* Volta após receber resposta ************************
+             TMRverificaratividadesusuario.Enabled := True;
+//************************* Volta após receber resposta ************************
+        end;
+
+  if T_cntatv >= T_tempolimite then
+    begin
+      T_sinalpausa := T_tempopausa;
+      T_cntpausa := T_hcorrente - T_hinipausa;
+      if B_arquivossalvos and FRMmostrarmensagens.Visible = False then
+        begin
+          FRMmostrarmensagens.Show;
+          Pausar1.Enabled := False;
+          Desativar1.Enabled := False;
+          Adiar1.Enabled := True;
+          Pular1.Enabled := True;
+        end;
+    end
+  else if (T_sinalatividade > StrToTime('00:00:00')) or Leitura1.Checked then
+      begin
+//$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ Fórmula 1
+        T_cntatv := T_hcorrente - T_hiniatv;
+//$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ Fórmula 1
+        T_hinipausa := T_hcorrente;
+        LBLSAIDAtempoatividade.caption := TimeToStr(T_cntatv);
+      end;
+  if T_cntpausa >= T_tempopausa then
+      begin
+          T_sinalatividade := StrToTime('00:00:00');
+          T_sinalpausa := StrToTime('00:00:00');
+          T_cntpausa := StrToTime('00:00:00');
+          T_cntatv := StrToTime('00:00:00');
+          T_hiniatv := T_hcorrente;
+          T_hinipausa := StrToTime('00:00:00');
+          B_arquivossalvos := False;
+          if FRMmostrarmensagens.Visible then
+             begin
+                FRMmostrarmensagens.Close;
+                Pausar1.Enabled := True;
+                Desativar1.Enabled := True;
+                Adiar1.Enabled := False;
+                Pular1.Enabled := False;
+             end;
+          LBLSAIDAtempoatividade.caption := TimeToStr(T_cntatv);
+          MessageBeep(64);
+          Application.MessageBox('Reativacao de Atividades', 'Preven - Sistema de Prevenção',
+                      mb_Ok + mb_IconWarning + mb_DefButton1 + MB_SYSTEMMODAL);
+          Pausar1.Enabled := True;
+      end;
+  if T_sinalpausa > StrToTime('00:00:00') then
+       T_sinalpausa := T_sinalpausa - StrToTime('00:00:01')
+  else {if T_sinalpausa <= StrToTime('00:00:00') then}
+      begin
+          T_sinalatividade := StrToTime('00:00:00');
+          T_sinalpausa := StrToTime('00:00:00');
+          T_cntpausa := StrToTime('00:00:00');
+          T_cntatv := StrToTime('00:00:00');
+          T_hiniatv := T_hcorrente;
+          T_hinipausa := StrToTime('00:00:00');
+          B_arquivossalvos := False;
+          LBLSAIDAtempoatividade.caption := TimeToStr(T_cntatv);
+      end;
+  if T_sinalatividade > StrToTime('00:00:00') then
+     begin
+       T_sinalatividade := T_sinalatividade - StrToTime('00:00:01');
+     end
+  else
+       T_sinalatividade := StrToTime('00:00:00');
+end;
+
+procedure TFRMverificaratividadesusuario.TYIprevenbackgroundClick(
+  Sender: TObject);
+begin
+  FRMverificaratividadesusuario.Visible := True;
+  Minimizar1.Enabled := True;
+end;
+
+procedure TFRMverificaratividadesusuario.FormCreate(Sender: TObject);
+begin
+     FRMverificaratividadesusuario.Visible := False;
+     B_ativataskicon := True;
+     TMRtecladomouse.Enabled := True;
+
+{Inicialização de Variáveis de Configuração}
+     T_tempolimite := StrToTime('00:50:00');
+     T_tempopausa:= StrToTime('00:10:00');
+     T_tempoatividadediaria := StrToTime('08:00:00');
+     T_tempopresalvamento := StrToTime('00:00:10');
+     T_hcorrente := time();
+     T_hiniatv := T_hcorrente;
+     T_hfimatividade := T_hiniatv + T_tempoatividadediaria;
+     T_sinalatividade := StrToTime('00:00:00');
+     T_sinalpausa := StrToTime('00:00:00');
+     T_cntpausa := StrToTime('00:00:00');
+     T_cntatv := StrToTime('00:00:00');
+     T_hinipausa := StrToTime('00:00:00');
+     B_arquivossalvos := False;
+     B_publicoalvoinfantil := False;
+     Infantil1.Enabled := True;
+     Adulto1.Enabled := False;
+     LBLSAIDAhorafimatividade.caption := TimeToStr(T_hfimatividade);
+     LBLSAIDAtempoatividade.caption := TimeToStr(T_cntatv);
+     TMRverificaratividadesusuario.Enabled := True;
+     TMRtecladomouse.Enabled := True;
+     Leitura1.Checked := False;
+end;
+
+procedure TFRMverificaratividadesusuario.Infantil1Click(Sender: TObject);
+begin
+    B_publicoalvoinfantil := True;
+    Infantil1.Enabled := False;
+    Adulto1.Enabled := True;
+end;
+
+procedure TFRMverificaratividadesusuario.Leitura1Click(Sender: TObject);
+begin
+    if Leitura1.Checked then
+      begin
+        Leitura1.Checked := False;
+      end
+    else
+      begin
+        Leitura1.Checked := True;
+      end;
+end;
+
+procedure TFRMverificaratividadesusuario.TMRtecladomouseTimer(Sender: TObject);
+begin
+        if tecladomouse then
+        begin
+             if T_sinalatividade < T_tempopausa then
+                T_sinalatividade := T_sinalatividade + StrToTime('00:00:01');
+             if T_sinalpausa < T_tempopausa then
+                begin
+                     T_sinalpausa := T_tempopausa;
+                end;
+        end;
+end;
+
+procedure TFRMverificaratividadesusuario.Pausar1Click(Sender: TObject);
+begin
+    T_cntatv := T_tempolimite;
+    TYIprevenbackground.Visible := True;
+    FRMverificaratividadesusuario.Visible := False;
+end;
+
+procedure TFRMverificaratividadesusuario.Adiar1Click(Sender: TObject);
+begin
+    T_sinalpausa := T_tempopausa;
+    T_sinalatividade := T_tempopausa;
+    T_cntpausa := StrToTime('00:00:00');
+    T_hinipausa := T_hcorrente;
+    MessageBeep(64);
+    B_arquivossalvos := False;
+    if FRMmostrarmensagens.Visible then
+        FRMmostrarmensagens.Close;
+    if FRMverificaratividadesusuario.Visible then
+        FRMverificaratividadesusuario.Visible := False;
+//$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ Fórmula 1
+    T_tempolimite := T_tempolimite + StrToTime('00:01:00');
+//$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ Fórmula 1
+    LBLSAIDAtempoatividade.caption := TimeToStr(T_cntatv);
+    Application.MessageBox('Pausa Adiada 1 minuto', 'Preven - Sistema de Prevenção',
+      mb_Ok + mb_IconWarning + mb_DefButton1 + MB_SYSTEMMODAL);
+    Pausar1.Enabled := True;
+    Desativar1.Enabled := True;
+    Adiar1.Enabled := False;
+    Pular1.Enabled := True;
+end;
+
+procedure TFRMverificaratividadesusuario.Adulto1Click(Sender: TObject);
+begin
+    B_publicoalvoinfantil := False;
+    Infantil1.Enabled := True;
+    Adulto1.Enabled := False;
+end;
+
+procedure TFRMverificaratividadesusuario.Ajuda1Click(Sender: TObject);
+begin
+   ShellExecute (FRMverificaratividadesusuario.Handle,'open','HELP\Help.HTM', nil, nil, SW_SHOWMAXIMIZED);
+end;
+
+procedure TFRMverificaratividadesusuario.ClaroClick(Sender: TObject);
+begin
+    TStyleManager.TrySetStyle('Windows');
+    Claro.Enabled := False;
+    Escuro.Enabled := True;
+end;
+
+procedure TFRMverificaratividadesusuario.EscuroClick(Sender: TObject);
+begin
+    TStyleManager.TrySetStyle('Windows10 Dark');
+    Claro.Enabled := True;
+    Escuro.Enabled := False;
+end;
+
+procedure TFRMverificaratividadesusuario.Desativar1Click(Sender: TObject);
+begin
+  T_sinalatividade := StrToTime('00:00:00');
+  T_sinalpausa := StrToTime('00:00:00');
+  T_cntpausa := StrToTime('00:00:00');
+  T_cntatv := StrToTime('00:00:00');
+  T_hiniatv := T_hcorrente;
+  T_hinipausa := StrToTime('00:00:00');
+  B_arquivossalvos := False;
+  if TMRtecladomouse.Enabled = True then
+     begin
+         TMRverificaratividadesusuario.Enabled := False;
+         TMRtecladomouse.Enabled := False;
+         MessageBeep(64);
+         Application.MessageBox('Interrupção Desabilitada', 'Preven - Sistema de Prevenção',
+                     mb_Ok + mb_IconWarning + mb_DefButton1 + MB_SYSTEMMODAL);
+         Desativar1.Caption := 'A&tivar';
+         MessageBeep(64);
+         Pausar1.Enabled := False;
+         Adiar1.Enabled := False;
+         Pular1.Enabled := False;
+     end
+  else
+      begin
+        TMRverificaratividadesusuario.Enabled := True;
+        TMRtecladomouse.Enabled := True;
+        MessageBeep(64);
+        Application.MessageBox('Interrupção Habilitada', 'Preven - Sistema de Prevenção',
+             mb_Ok + mb_IconWarning + mb_DefButton2 + MB_SYSTEMMODAL);
+        Desativar1.Caption := '&Desativar';
+        MessageBeep(64);
+        Pausar1.Enabled := True;
+        Adiar1.Enabled := False;
+        Pular1.Enabled := False;
+      end;
+end;
+
+procedure TFRMverificaratividadesusuario.Doao1Click(Sender: TObject);
+begin
+{Com o Comando ShellExecute, podemos executar a abertura do Brownser padrão no seu
+sistema operacional, e nele já abrir o link clicado}
+
+ShellExecute (FRMverificaratividadesusuario.Handle,'open','https://www.prevenus.net/prevenus', nil, nil, SW_SHOWMAXIMIZED);
+end;
+
+procedure TFRMverificaratividadesusuario.Minimizar1Click(Sender: TObject);
+begin
+    TYIprevenbackground.Visible := True;
+    FRMverificaratividadesusuario.Visible := False;
+    Minimizar1.Enabled := False;
+end;
+
+procedure TFRMverificaratividadesusuario.Pular1Click(Sender: TObject);
+begin
+  T_sinalatividade := StrToTime('00:00:00');
+  T_sinalpausa := StrToTime('00:00:00');
+  T_cntpausa := StrToTime('00:00:00');
+  T_cntatv := StrToTime('00:00:00');
+  T_hiniatv := T_hcorrente;
+  T_hinipausa := StrToTime('00:00:00');
+  B_arquivossalvos := False;
+  if FRMmostrarmensagens.Visible then
+    FRMmostrarmensagens.Close;
+  LBLSAIDAtempoatividade.caption := TimeToStr(T_cntatv);
+  MessageBeep(64);
+  Application.MessageBox('Pausa Pulada', 'Preven - Sistema de Prevenção',
+                      mb_Ok + mb_IconWarning + mb_DefButton1 + MB_SYSTEMMODAL);
+  Pausar1.Enabled := True;
+  Desativar1.Enabled := True;
+  Adiar1.Enabled := False;
+  Pular1.Enabled := False;
+end;
+
+procedure TFRMverificaratividadesusuario.Sair1Click(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TFRMverificaratividadesusuario.Sobre1Click(Sender: TObject);
+begin
+    FRMtelaapresentacao := TFRMtelaapresentacao.Create(Self);
+    try
+      FRMtelaapresentacao.ShowModal;
+    finally
+      FRMtelaapresentacao.Release;
+    end;
+end;
+
+procedure TFRMverificaratividadesusuario.TKIprevenbackgroundClick(
+  Sender: TObject);
+begin
+    FRMverificaratividadesusuario.visible:=TRUE;
+end;
+
+{pergunta se faz a pausa agora ou não e se os trabalhos da seção foram salvos
+
+verifica se o tempo de atividade de uma sessão ultrapassou o limite
+
+entra em pausa
+
+verifica se há atividade no teclado e mouse  ou se a interrupção será aplicada somente pelo tempo
+
+volta a atividade depois de verificar se a pausa foi realizada
+
+decrementa sinal de pausa caso não houver o uso do teclado ou mouse
+
+decrementa sinal de atividade que tem valor inicial igual a T-tempopausa até atingir o valor igual a zero
+
+exibe mensagens casos o teclado e o mouse estiverem ociosos
+
+torna tela principal do Preven invisível
+
+tempo máximo de atividade diária
+
+verifica atividade do teclado e mouse, incrementa o sinalatividade no caso do uso dos mesmos ou inicia sinalpausa do valor máximo que é T_tempopausa
+
+adia pausa em que x minutos
+
+desativa ou ativa a verificação das atividades do usuário. Tanto na primeira ou segunda possibilidade é necessário zerar a atividade do usuário
+
+ocultar a tela principal do preven
+
+exibir a tela de configuração das propriedades do sistema Preven
+
+pular a pausa ou não fazer a pausa}
+
+
+end.

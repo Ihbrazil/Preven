@@ -1,0 +1,82 @@
+unit STL100P2T;
+
+{Mostrar Mensagens Visuais}
+
+{Unidade responsável pela apresentação da Mensagem Visual correspondente a
+Velocidade da Digitação}
+
+interface
+
+uses
+  Windows, ExtCtrls, Gauges, StdCtrls, Controls,
+  Classes, Messages, SysUtils, Graphics, Forms, Dialogs, ComCtrls,
+  jpeg, Buttons;
+
+type
+  TFRMsentinela = class(TForm)
+    IMGsinalamarelo: TImage;
+    IMGsinalverde: TImage;
+    IMGsinalvermelho: TImage;
+    PNLmensagem: TPanel;
+    procedure IMGsinalvermelhoClick(Sender: TObject);
+    procedure IMGsinalverdeClick(Sender: TObject);
+    procedure IMGsinalamareloClick(Sender: TObject);
+    procedure PNLvelocidadedigitacaoClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  FRMsentinela: TFRMsentinela;
+  S_Topo : string[3];
+  S_Esquerda: string[4];
+  Topo, Esquerda: integer;
+  posicao : Text; {Variável interna de arquivo texto}
+
+implementation
+
+uses PRV130P1T;
+
+{$R *.DFM}
+
+procedure TFRMsentinela.IMGsinalvermelhoClick(Sender: TObject);
+begin
+    FRMsentinela.Visible := False;
+end;
+
+procedure TFRMsentinela.IMGsinalverdeClick(Sender: TObject);
+begin
+    FRMsentinela.Visible := False;
+end;
+
+procedure TFRMsentinela.IMGsinalamareloClick(Sender: TObject);
+begin
+    FRMsentinela.Visible := False;
+end;
+
+procedure TFRMsentinela.PNLvelocidadedigitacaoClick(
+  Sender: TObject);
+begin
+    FRMsentinela.Visible := False;
+end;
+
+procedure TFRMsentinela.FormShow(Sender: TObject);
+begin
+     if FRMsentinela.Visible then
+        begin
+           FRMsentinela.Close;
+           FRMsentinela.Free;
+        end;
+
+     FRMsentinela.IMGsinalverde.Visible := True;
+     FRMsentinela.IMGsinalamarelo.Visible := False;
+     FRMsentinela.IMGsinalvermelho.Visible := False;
+     FRMsentinela.PNLmensagem.Color := clGreen;
+
+     FRMsentinela.Show;
+end;
+
+end.

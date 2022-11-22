@@ -1,0 +1,22 @@
+program PRV130P;
+
+{PREVEN - Sistema de Prevenção ao Dort/Ler}
+
+uses
+  Forms,
+  Windows,
+  PRV130P1T in 'PRV130P1T.pas' {FRMverificaratividadesusuario},
+  PRV130P2T in 'PRV130P2T.pas' {FRMmostrarmensagens},
+  PRV130P3T in 'PRV130P3T.pas' {FRMtelaapresentacao},
+  PRV130P1U in 'PRV130P1U.pas';
+
+{$R *.RES}
+
+begin
+  Application.Initialize;
+  Application.Title := 'Preven';
+  Application.HelpFile := 'E:\Dropbox\MIPIsHBDadosNovos\Projeto Prevenus\Sistemas\PrevenSBDeTT Tray Icon\Help\HELP.HLP';
+  Application.CreateForm(TFRMverificaratividadesusuario, FRMverificaratividadesusuario);
+  Application.CreateForm(TFRMmostrarmensagens, FRMmostrarmensagens);
+  Application.Run;
+end.
